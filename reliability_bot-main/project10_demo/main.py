@@ -182,17 +182,25 @@ if check_password():
     # 이전 메시지 출력 함수
     print_messages()
 
-    # 이미지 업로드
-    img_file = st.file_uploader("이미지 업로드", type=["jpg", "jpeg", "png"])
-    if img_file is not None:
-        os.makedirs("plots", exist_ok=True)
-        img_path = os.path.join("plots", img_file.name)
-        with open(img_path, "wb") as f:
-            f.write(img_file.getbuffer())
-        st.session_state['uploaded_image'] = img_path
-        st.image(img_path, caption=os.path.basename(img_path))
+    # 이미지 업로드 버튼과 채팅 입력을 한 줄에 배치
+    input_col, upload_col = st.columns([5, 1])
+    with upload_col:
+        img_file = st.file_uploader(
+            "이미지 업로드",
+            type=["jpg", "jpeg", "png"],
+            label_visibility="collapsed",
+            key="image_uploader",
+        )
+        if img_file is not None:
+            os.makedirs("plots", exist_ok=True)
+            img_path = os.path.join("plots", img_file.name)
+            with open(img_path, "wb") as f:
+                f.write(img_file.getbuffer())
+            st.session_state["uploaded_image"] = img_path
+            st.image(img_path, caption=os.path.basename(img_path))
 
-    user_input = st.chat_input('메시지 입력', key='input')
+    with input_col:
+        user_input = st.chat_input("메시지 입력", key="input")
     if user_input or st.session_state.get('uploaded_image'):
         if user_input:
             st.chat_message('user').markdown(user_input)
@@ -229,7 +237,9 @@ if check_password():
         # 답변처리
         if st.session_state.get('uploaded_image'):
             image_name = os.path.basename(st.session_state['uploaded_image'])
-            response = analyze_image(user_input if user_input else '이미지를 분석해줘', image_name)
+            response = analyze_image.invoke(
+                user_input if user_input else '이미지를 분석해줘', image_name
+            )
             msg = response.content if hasattr(response, 'content') else response
             st.session_state['uploaded_image'] = None
         else:
