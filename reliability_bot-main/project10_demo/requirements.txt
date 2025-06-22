@@ -1,0 +1,17 @@
+pandas
+langchain
+autograd
+scipy
+reliability
+seaborn
+lifelines
+matplotlib
+numpy 
+streamlit
+langchain_community
+langchain_openai
+langchain_core
+langchain_experimental
+openpyxl
+faiss-cpu
+
