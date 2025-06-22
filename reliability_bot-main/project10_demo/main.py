@@ -117,6 +117,8 @@ if check_password():
 
     if 'uploaded_files' not in st.session_state:
         st.session_state['uploaded_files']=[]
+    if 'uploaded_image' not in st.session_state:
+        st.session_state['uploaded_image'] = None
 
     if 'plot' not in st.session_state:
         st.session_state['plot']=[] 
@@ -180,10 +182,24 @@ if check_password():
     # 이전 메시지 출력 함수
     print_messages()
 
-    if user_input := st.chat_input('메시지 입력',key='input'): 
-        # 유저 입력 메시지 저장
-        st.chat_message('user').markdown(user_input)
-        st.session_state['messages'].append({'role':'user','content':user_input})
+    # 이미지 업로드
+    img_file = st.file_uploader("이미지 업로드", type=["jpg", "jpeg", "png"])
+    if img_file is not None:
+        os.makedirs("plots", exist_ok=True)
+        img_path = os.path.join("plots", img_file.name)
+        with open(img_path, "wb") as f:
+            f.write(img_file.getbuffer())
+        st.session_state['uploaded_image'] = img_path
+        st.image(img_path, caption=os.path.basename(img_path))
+
+    user_input = st.chat_input('메시지 입력', key='input')
+    if user_input or st.session_state.get('uploaded_image'):
+        if user_input:
+            st.chat_message('user').markdown(user_input)
+            st.session_state['messages'].append({'role':'user','content':user_input})
+        if st.session_state.get('uploaded_image'):
+            st.image(st.session_state['uploaded_image'], caption=os.path.basename(st.session_state['uploaded_image']))
+            st.session_state['messages'].append({'role':'image', 'content': st.session_state['uploaded_image']})
         
         # 그래프 공간 비워두기
         st.session_state['placeholder_plot'] = st.empty()
@@ -195,28 +211,34 @@ if check_password():
             
         
         # 모델 생성
-        model=ChatOpenAI(streaming=True, callbacks=[stream_handler],model='gpt-4.1',temperature=0.03, max_retries=7,top_p=0.7,api_key=st.secrets['OPENAIKEY']) # 
+        model=ChatOpenAI(streaming=True, callbacks=[stream_handler],model='gpt-4.1',temperature=0.03, max_retries=7,top_p=0.7,api_key=st.secrets['OPENAIKEY']) #
 
         # AgentExecutor 클래스를 사용하여 agent와 tools를 설정하고, 상세한 로그를 출력하도록 verbose를 True로 설정합니다.
         tools = [st.session_state['DB_Retrieval_1'],st.session_state['DB_Retrieval_2'],DF_Retrieval, one_mean_test, two_mean_test, python_repl, find_individual_dist,find_best_dist,analyze_AFT,calculate_lifetime_or_test_time,analyze_image,perplexity] # python_repl
-        
+
         agent = create_openai_functions_agent(model, tools, st.session_state['PROMPT'])
-        
+
         agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
-         
+
         agent_with_chat_history = RunnableWithMessageHistory(
                 agent_executor,
                 get_session_history,
                 input_messages_key='input',
                 history_messages_key='chat_history'
-        )    
-        # 답변처리 
-        response = agent_with_chat_history.invoke(
-            {'input': user_input},       
-            config={'configurable': {"session_id": session_id}}
         )
-        
-        msg = response['output']
+        # 답변처리
+        if st.session_state.get('uploaded_image'):
+            image_name = os.path.basename(st.session_state['uploaded_image'])
+            response = analyze_image(user_input if user_input else '이미지를 분석해줘', image_name)
+            msg = response.content if hasattr(response, 'content') else response
+            st.session_state['uploaded_image'] = None
+        else:
+            response = agent_with_chat_history.invoke(
+                {'input': user_input},
+                config={'configurable': {"session_id": session_id}}
+            )
+
+            msg = response['output']
         # 그래프 생성되면, session에 저장하는부분(도구로 처리할까?)
         if "[여기]" in msg and '.png' in msg:
             match = re.search(r'/([^/]+)\.png', msg)

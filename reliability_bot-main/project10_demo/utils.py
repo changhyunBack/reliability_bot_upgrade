@@ -21,9 +21,9 @@ def print_messages():
     # 이전 대화기록 불러오기
     if 'messages' in st.session_state and len(st.session_state['messages'])>0:
         for msg in st.session_state['messages']:
-            if msg['role']=='plot':
-                st.image(msg['content'],caption=os.path.basename(msg['content']))   
-            elif msg['role'] =='df':  
+            if msg['role'] in ['plot', 'image']:
+                st.image(msg['content'], caption=os.path.basename(msg['content']))
+            elif msg['role'] =='df':
                 if msg['content'] != 'None':
                     st.dataframe(st.session_state['dataframes'][msg['content']]) # 데이터프레임파일 (dict형태로되있음.)
             elif msg['role']=='df_result':
